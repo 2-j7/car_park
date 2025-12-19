@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微信支付收银台</title>
+    <style>
+        body { background-color: #f2f2f2; font-family: -apple-system, sans-serif; text-align: center; padding: 20px; }
+        .card { background: white; padding: 30px; border-radius: 10px; margin-top: 50px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .logo { width: 60px; margin-bottom: 10px; }
+        h2 { margin: 10px 0; font-weight: normal; font-size: 16px; color: #333; }
+        .price { font-size: 40px; font-weight: bold; color: #333; margin: 20px 0; }
+        .btn {
+            background-color: #07c160; color: white; border: none;
+            padding: 15px; width: 100%; border-radius: 5px;
+            font-size: 18px; font-weight: bold; cursor: pointer;
+        }
+        .btn:active { background-color: #06ad56; }
+        .plate-info { color: #888; font-size: 14px; margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+
+<div class="card" id="payCard">
+    <img src="https://img.icons8.com/color/96/wechat.png" class="logo" alt="WeChat">
+    <h2>停车费支付</h2>
+    <div class="price" id="feeDisplay">正在获取金额...</div>
+    <div class="plate-info">车牌号：<span id="plateDisplay">--</span></div>
+    <button class="btn" onclick="doPay()">立即支付</button>
+</div>
+
+<div id="successCard" class="card" style="display: none; text-align: center;">
+    <div style="font-size: 60px; color: #07c160;">✅</div>
+    <h3>支付成功</h3>
+    <p>请在出口处离场</p>
+</div>
+
+<script>
+    // 获取URL参数
+    const params = new URLSearchParams(window.location.search);
+    const plate = params.get('plate');
+    // 注意：这里需要填入你电脑的局域网IP，或者由上一页传过来
+    // 为了方便，我们使用相对路径，前提是手机能访问到这个静态页面
+    const API_BASE = "/api/pay";
+
+    document.getElementById('plateDisplay').innerText = plate;
+
+    // 页面加载时获取金额
+    fetch(`${API_BASE}/info?plate=${plate}`)
+        .then(res => res.json())
+        .then(fee => {
+            document.getElementById('feeDisplay').innerText = "¥ " + fee.toFixed(2);
+        })
+        .catch(err => {
+            alert("获取订单失败，请确保手机和电脑在同一WiFi");
+        });
+
+    function doPay() {
+        // 模拟支付过程
+        document.querySelector('.btn').innerText = "支付处理中...";
+
+        fetch(`${API_BASE}/confirm?plate=${plate}`, { method: 'POST' })
+            .then(res => res.text())
+            .then(res => {
+                if(res === 'success') {
+                    document.getElementById('payCard').style.display = 'none';
+                    document.getElementById('successCard').style.display = 'block';
+                }
+            });
+    }
+</script>
+</body>
+</html>

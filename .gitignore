@@ -1,0 +1,22 @@
+# === Python 忽略文件 ===
+.venv/
+venv/
+__pycache__/
+*.pyc
+fix_park/temp_plate.jpg
+
+# === Java (后端) 忽略文件 ===
+target/
+*.class
+*.log
+.mvn/
+
+# === 前端 (Node.js) 忽略文件 ===
+node_modules/
+dist/
+npm-debug.log*
+
+# === IDE 忽略文件 ===
+.idea/
+.vscode/
+*.iml

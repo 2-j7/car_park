@@ -1,0 +1,34 @@
+<!-- 简单的逻辑示意 -->
+<input type="file" id="imgUpload">
+<button onclick="uploadImage()">识别车牌</button>
+<br>
+车牌号：<input type="text" id="plateInput">
+<button onclick="confirmEntry()">确认入场</button>
+
+<script>
+    // 1. 发送图片给 Python
+    async function uploadImage() {
+        let formData = new FormData();
+        formData.append("file", document.getElementById("imgUpload").files[0]);
+
+        let response = await fetch("http://localhost:5000/ocr", {
+            method: "POST",
+            body: formData
+        });
+        let data = await response.json();
+        // 自动填入输入框
+        document.getElementById("plateInput").value = data.plate;
+    }
+
+    // 2. 发送车牌给 Java
+    async function confirmEntry() {
+        let plate = document.getElementById("plateInput").value;
+        // 调用 Java 接口
+        let response = await fetch("http://localhost:8080/api/entry?plate=" + plate, {
+            method: "POST"
+        });
+        let result = await response.text();
+        alert(result);
+        // 这里应该刷新下方的表格
+    }
+</script>

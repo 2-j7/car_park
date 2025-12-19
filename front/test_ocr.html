@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>车牌识别测试</title>
+</head>
+<body>
+    <h2>第一步：Python OCR 接口测试</h2>
+    
+    <!-- 图片选择 -->
+    <input type="file" id="imageInput" accept="image/*">
+    <button onclick="testOCR()">上传并识别</button>
+    
+    <p>识别结果：<b id="result" style="color: red; font-size: 24px;">等待上传...</b></p>
+
+    <!-- 显示选中的图片 -->
+    <img id="preview" style="max-width: 300px; margin-top: 10px; display: none;">
+
+    <script>
+        // 简单的图片预览逻辑
+        document.getElementById('imageInput').onchange = function(evt) {
+            let src = URL.createObjectURL(evt.target.files[0]);
+            let img = document.getElementById('preview');
+            img.src = src;
+            img.style.display = 'block';
+        }
+
+        async function testOCR() {
+            let fileInput = document.getElementById('imageInput');
+            if(fileInput.files.length === 0) {
+                alert("请先选择一张车牌图片！");
+                return;
+            }
+
+            let formData = new FormData();
+            formData.append("file", fileInput.files[0]); // 注意：这里名字要是 'file'，对应 Python 里的 request.files['file']
+
+            document.getElementById('result').innerText = "识别中...";
+
+            try {
+                // 发送请求给 Python
+                let response = await fetch("http://127.0.0.1:5000/ocr", {
+                    method: "POST",
+                    body: formData
+                });
+                
+                let data = await response.json();
+                console.log(data); // 在浏览器控制台查看详细返回
+
+                if(data.plate) {
+                    document.getElementById('result').innerText = data.plate;
+                } else {
+                    document.getElementById('result').innerText = "未能识别出车牌";
+                }
+            } catch (error) {
+                console.error(error);
+                document.getElementById('result').innerText = "连接 Python 失败 (请检查控制台)";
+                alert("请求失败！请确认：\n1. Python 程序是否正在运行？\n2. 是否安装了 flask-cors？");
+            }
+        }
+    </script>
+</body>
+</html>
