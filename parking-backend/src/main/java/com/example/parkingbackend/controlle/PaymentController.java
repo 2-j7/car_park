@@ -17,7 +17,7 @@ public class PaymentController {
 
     // 内存中模拟存储支付状态：Key=车牌号, Value=是否已支付
     // 生产环境应该用 Redis 或 数据库
-    private static ConcurrentHashMap<String, Boolean> paymentStatusMap = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Boolean> paymentStatusMap = new ConcurrentHashMap<>();
 
     // 1. 获取待支付金额 (手机端调用)
     @GetMapping("/info")

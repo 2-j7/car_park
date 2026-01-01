@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <!-- 引入二维码生成库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>车辆收费管理系统</title>
+    <style>
+        /* 模态框背景 */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0; top: 0;
+    width: 100%; height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    justify-content: center; align-items: center;
+}
+/* 小票内容 */
+.receipt-box {
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    width: 300px;
+    text-align: center;
+    border-top: 5px solid #e74c3c;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+.receipt-item {
+    display: flex;
+    justify-content: space-between;
+    margin: 10px 0;
+    border-bottom: 1px dashed #eee;
+    padding-bottom: 5px;
+}
+.big-price { font-size: 32px; color: #e74c3c; font-weight: bold; margin: 20px 0; }
+        :root {
+            --primary-color: #4a90e2;
+            --bg-color: #f4f7f6;
+            --white: #ffffff;
+            --text-color: #333;
+            --danger-color: #e74c3c;
+            --success-color: #2ecc71;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            width: 250px;
+            background-color: #2c3e50;
+            color: var(--white);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .sidebar h2 {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 1px solid #34495e;
+            padding-bottom: 20px;
+        }
+
+        .menu-item {
+            padding: 15px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            background-color: #34495e;
+            transition: 0.3s;
+        }
+
+        .menu-item:hover, .menu-item.active {
+            background-color: var(--primary-color);
+        }
+
+        /* 主内容区 */
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        /* 顶部统计卡片 */
+        .stats-container {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: var(--white);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card h3 { margin: 0; font-size: 16px; color: #7f8c8d; }
+        .card p { margin: 5px 0 0; font-size: 28px; font-weight: bold; color: var(--text-color); }
+
+        /* 操作区域 */
+        .action-area {
+            background: var(--white);
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            margin-right: 10px;
+            cursor: pointer;
+            background: #eee;
+            border: none;
+            border-radius: 5px;
+        }
+
+        .tab-btn.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .input-group {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: 200px;
+            font-size: 16px;
+        }
+
+        button.primary-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button.primary-btn:hover { opacity: 0.9; }
+
+        /* 表格区域 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--white);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th { background-color: #f8f9fa; font-weight: 600; }
+
+        .status-in { color: var(--success-color); font-weight: bold; }
+        .status-out { color: #95a5a6; }
+
+        .btn-exit {
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        /* 图片预览 */
+        #previewImg {
+            max-height: 50px;
+            border-radius: 5px;
+            display: none;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>🚗 停车管理系统</h2>
+    <!-- 给菜单项加 ID，方便 JS 控制高亮 -->
+    <div id="menu-manage" class="menu-item active" onclick="showManage()">🚗 车辆管理</div>
+    <div id="menu-stats" class="menu-item" onclick="showStats()">📊 数据报表统计</div>
+    <div class="menu-item" onclick="exportData()">📤 导出月度报表</div>
+</div>
+
+<!-- 主内容 -->
+<div class="main-content">
+
+    <!-- 顶部：3个统计卡片 (永远显示) -->
+    <div class="stats-container">
+        <div class="card">
+            <div>
+                <h3>剩余车位</h3>
+                <p id="remainSpace">20</p>
+            </div>
+            <div style="font-size: 30px; color: #2ecc71;">🅿️</div>
+        </div>
+        <div class="card">
+            <div>
+                <h3>当前在场</h3>
+                <p id="currentCars">0</p>
+            </div>
+            <div style="font-size: 30px; color: #4a90e2;">🚘</div>
+        </div>
+        <div class="card">
+            <div>
+                <h3>今日收益</h3>
+                <p>¥ <span id="todayIncome">0.00</span></p>
+            </div>
+            <div style="font-size: 30px; color: #f1c40f;">💰</div>
+        </div>
+    </div>
+
+    <!-- ========================================= -->
+    <!-- 🔴 区域一：车辆管理 (默认显示)            -->
+    <!-- ========================================= -->
+    <div id="section-manage">
+
+        <!-- 入场操作区 -->
+        <div class="action-area">
+            <h3>📝 车辆入场登记</h3>
+            <div>
+                <button class="tab-btn active" onclick="switchTab('scan')">📸 拍照识别 (AI)</button>
+                <button class="tab-btn" onclick="switchTab('manual')">⌨️ 手动输入</button>
+            </div>
+
+            <!-- 拍照模式 -->
+            <div id="scanMode" class="input-group">
+                <input type="file" id="fileInput" accept="image/*">
+                <img id="previewImg" src="" alt="预览">
+                <button class="primary-btn" onclick="uploadAndScan()" style="background-color: #e67e22;">第一步: AI 识别</button>
+                <span style="font-weight: bold;">➡️ 识别结果：</span>
+                <input type="text" id="scanPlateResult" placeholder="等待识别..." style="font-weight: bold; color: blue;">
+                <button class="primary-btn" onclick="confirmEntry('scanPlateResult')">第二步: 确认入场</button>
+            </div>
+
+            <!-- 手动模式 -->
+            <div id="manualMode" class="input-group" style="display: none;">
+                <input type="text" id="manualPlateInput" placeholder="请输入车牌号">
+                <button class="primary-btn" onclick="confirmEntry('manualPlateInput')">确认入场</button>
+            </div>
+        </div>
+
+        <!-- 车辆表格 -->
+        <h3>📋 实时停车记录</h3>
+        <table>
+            <thead>
+            <tr>
+                <th>ID</th><th>车牌号</th><th>入场时间</th><th>离场时间</th><th>费用</th><th>状态</th><th>操作</th>
+            </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- ========================================= -->
+    <!-- 🔵 区域二：数据统计图表 (默认隐藏)         -->
+    <!-- ========================================= -->
+    <div id="section-stats" style="display: none;">
+        <h3>📊 数据可视化分析</h3>
+        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+            <!-- 饼图 -->
+            <div id="pieChart" style="width: 45%; height: 400px; background: white; padding: 20px; border-radius: 10px;"></div>
+            <!-- 柱状图 -->
+            <div id="barChart" style="width: 45%; height: 400px; background: white; padding: 20px; border-radius: 10px;"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // === 必须确保 ECharts 已加载 ===
+    // 如果没有这一行，请加在 <head> 里: <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"><\/script>
+
+    // 1. 显示【车辆管理】页面
+    function showManage() {
+        // 切换区域显示
+        document.getElementById('section-manage').style.display = 'block';
+        document.getElementById('section-stats').style.display = 'none';
+
+        // 切换菜单高亮
+        document.getElementById('menu-manage').classList.add('active');
+        document.getElementById('menu-stats').classList.remove('active');
+
+        // 重新加载表格数据（防止数据过时）
+        loadTableData();
+    }
+
+    // 2. 显示【数据统计】页面
+    function showStats() {
+        // 切换区域显示
+        document.getElementById('section-manage').style.display = 'none';
+        document.getElementById('section-stats').style.display = 'block';
+
+        // 切换菜单高亮
+        document.getElementById('menu-manage').classList.remove('active');
+        document.getElementById('menu-stats').classList.add('active');
+
+        // ★★★ 核心：开始渲染图表 ★★★
+        renderCharts();
+    }
+
+    // 3. 渲染图表的核心逻辑
+    async function renderCharts() {
+        // 先检查 echarts 是否引入
+        if (typeof echarts === 'undefined') {
+            alert("ECharts 库未加载！请检查 HTML head 部分。");
+            return;
+        }
+
+        try {
+            // 从 Java 后端获取最新数据
+            const response = await fetch(`${JAVA_API}/list`);
+            const data = await response.json();
+
+            console.log("获取到统计数据:", data); // 调试用
+
+            // --- 数据处理 ---
+            let inCount = 0;
+            let outCount = 0;
+            let incomeData = []; // 存最近离场车的费用
+
+            data.forEach(item => {
+                if(item.status === 0) {
+                    inCount++;
+                } else {
+                    outCount++;
+                    // 收集已离场车辆的数据用于柱状图
+                    incomeData.push({ name: item.plateNumber, value: item.parkingFee });
+                }
+            });
+
+            // 只取最近 5 辆离场的车，防止柱状图太挤
+            const recentExit = incomeData.slice(0, 5);
+
+            // --- 初始化图表 ---
+            // 必须基于 DOM 元素存在时才能初始化，所以这一步在 showStats 之后做
+            const pieDom = document.getElementById('pieChart');
+            const barDom = document.getElementById('barChart');
+
+            // 销毁旧实例（防止切回来时报错），或者检查是否已初始化
+            const myPie = echarts.getInstanceByDom(pieDom) || echarts.init(pieDom);
+            const myBar = echarts.getInstanceByDom(barDom) || echarts.init(barDom);
+
+            // --- 配置饼图 ---
+            myPie.setOption({
+                title: { text: '车辆在场状态', left: 'center' },
+                tooltip: { trigger: 'item' },
+                legend: { bottom: '0%' },
+                series: [{
+                    name: '数量',
+                    type: 'pie',
+                    radius: ['40%', '70%'], // 环形图更好看
+                    data: [
+                        { value: inCount, name: '🅿️ 在场中', itemStyle: { color: '#2ecc71' } },
+                        { value: outCount, name: '🏃 已离场', itemStyle: { color: '#95a5a6' } }
+                    ]
+                }]
+            });
+
+            // --- 配置柱状图 ---
+            myBar.setOption({
+                title: { text: '最近收益分析', left: 'center' },
+                tooltip: { trigger: 'axis' },
+                xAxis: {
+                    type: 'category',
+                    data: recentExit.length > 0 ? recentExit.map(i => i.name) : ["暂无数据"]
+                },
+                yAxis: { type: 'value', name: '金额(元)' },
+                series: [{
+                    data: recentExit.length > 0 ? recentExit.map(i => i.value) : [0],
+                    type: 'bar',
+                    itemStyle: { color: '#4a90e2' },
+                    barWidth: '40%'
+                }]
+            });
+
+            // 自适应窗口大小
+            window.onresize = function() {
+                myPie.resize();
+                myBar.resize();
+            };
+
+        } catch (error) {
+            console.error("图表加载失败:", error);
+        }
+    }
+            // === 配置地址 ===
+            const PYTHON_API = "http://127.0.0.1:5000/ocr";
+            const JAVA_API = "http://localhost:8080/api";
+
+            // === 页面加载时执行 ===
+            window.onload = function() {
+                loadTableData();
+            };
+
+            // 切换 Tab
+            function switchTab(mode) {
+                if(mode === 'scan') {
+                    document.getElementById('scanMode').style.display = 'flex';
+                    document.getElementById('manualMode').style.display = 'none';
+                } else {
+                    document.getElementById('scanMode').style.display = 'none';
+                    document.getElementById('manualMode').style.display = 'flex';
+                }
+                // 按钮样式切换（简化处理）
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                event.target.classList.add('active');
+            }
+
+            // 1. 上传并调用 Python 识别
+            async function uploadAndScan() {
+                const fileInput = document.getElementById('fileInput');
+                if(fileInput.files.length === 0) {
+                    alert("请先选择一张图片！");
+                    return;
+                }
+
+                // 图片预览
+                const imgUrl = URL.createObjectURL(fileInput.files[0]);
+                const preview = document.getElementById('previewImg');
+                preview.src = imgUrl;
+                preview.style.display = 'block';
+
+                const formData = new FormData();
+                formData.append("file", fileInput.files[0]);
+
+                const resultInput = document.getElementById('scanPlateResult');
+                resultInput.value = "识别中...";
+
+                try {
+                    const response = await fetch(PYTHON_API, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+
+                    if(data.plate && data.plate !== "未识别") {
+                        resultInput.value = data.plate;
+                    } else {
+                        resultInput.value = "";
+                        alert("识别失败，请重试或手动输入");
+                    }
+                } catch (error) {
+                    console.error(error);
+                    alert("无法连接到 Python 服务，请检查 park.py 是否运行");
+                }
+            }
+
+            // 2. 调用 Java 入场
+           // === 新版本：带有格式校验的 confirmEntry 函数 ===
+    async function confirmEntry(inputId) {
+        const plateInput = document.getElementById(inputId);
+        const plate = plateInput.value.toUpperCase(); // 统一转为大写
+
+        if (!plate || plate === "识别中...") {
+            alert("请输入有效的车牌号");
+            return;
+        }
+
+        // --- 正则表达式校验 ---
+        // 规则: [省份汉字][A-Z][A-Z0-9]{5}  (兼容新能源多一位的情况，用{5,6})
+        const plateRegex = /^[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼使领][A-Z][A-Z0-9]{5,6}$/;
+        if (!plateRegex.test(plate)) {
+            alert("车牌号格式不正确！\n\n请输入有效的车牌格式，例如：\n京A88888 (蓝牌)\n沪D123456 (绿牌)");
+            plateInput.focus(); // 让光标聚焦回输入框
+            return; // 阻止后续操作
+        }
+
+        try {
+            const response = await fetch(`${JAVA_API}/entry?plate=${encodeURIComponent(plate)}`, {
+                method: 'POST'
+            });
+            const msg = await response.text();
+            alert(msg);
+
+            if(msg.includes('成功')) {
+                 loadTableData();
+                 plateInput.value = '';
+            }
+        } catch (error) {
+            alert("入场请求失败，请检查 Java 后端是否运行");
+        }
+    }
+
+            function exportData() {
+        // 模拟检查周期
+        const date = new Date();
+        const isEnd = confirm(`当前系统日期：${date.toLocaleDateString()}\n\n检测到本计费周期（30天）数据尚未归档。\n是否立即导出 Excel 并开启新周期？`);
+
+        if(isEnd) {
+            // 这里假装在下载
+            alert("正在生成 Excel 文件...\n\n(模拟) 导出成功！文件已保存至桌面。\n\n系统周期已重置为：Cycle_2025_02");
+        }
+    }
+
+            // 3. 调用 Java 离场
+       // 全局变量用于存储定时器，方便清除
+    let pollInterval = null;
+
+    // === 必须修改这里：你的电脑局域网IP ===
+    // 1. 打开CMD，输入 ipconfig 查看 IPv4 地址 (例如 192.168.1.5)
+    // 2. 手机必须连接同一个 WiFi
+    const PC_IP_ADDRESS = "192.168.3.3"; // <--- 请替换成你真实的IP！！！
+    const SERVER_PORT = "8080";
+
+    async function exitCar(plate) {
+        if (!confirm(`准备为车辆 [${plate}] 办理扫码支付结算吗？`)) return;
+
+        // 1. 获取费用 (调用Java新接口)
+        let fee = 0;
+        try {
+            const res = await fetch(`${JAVA_API}/pay/info?plate=${plate}`); // 初始化订单
+            fee = await res.json();
+        } catch (e) {
+            alert("无法连接服务器获取金额");
+            return;
+        }
+
+        // 2. 更新弹窗UI
+        document.getElementById('qr_fee_text').innerText = '¥ ' + fee.toFixed(2);
+        document.getElementById('paymentStatus').innerText = '等待手机扫码...';
+
+        // 3. 生成手机访问的支付链接
+        // 格式：http://192.168.1.5:8080/pay.html?plate=京A88888
+        const payUrl = `http://${PC_IP_ADDRESS}:${SERVER_PORT}/pay.html?plate=${encodeURIComponent(plate)}`;
+        console.log("支付链接:", payUrl);
+
+        // 4. 生成二维码
+        const qrContainer = document.getElementById('qrcode_box'); // 需要在HTML里加这个ID
+        qrContainer.innerHTML = ""; // 清空旧的
+        new QRCode(qrContainer, {
+            text: payUrl,
+            width: 200,
+            height: 200
+        });
+
+        // 5. 显示弹窗
+        const qrModal = document.getElementById('qrModal');
+        qrModal.style.display = 'flex';
+
+        // 6. 启动轮询 (每1秒问一次后端：由于手机端付了吗？)
+        if(pollInterval) clearInterval(pollInterval);
+
+        pollInterval = setInterval(async () => {
+            try {
+                const checkRes = await fetch(`${JAVA_API}/pay/check?plate=${plate}`);
+                const isPaid = await checkRes.json(); // 返回 true 或 false
+
+                if (isPaid) {
+                    // === 支付成功！ ===
+                    clearInterval(pollInterval); // 停止轮询
+                    document.getElementById('paymentStatus').innerText = '✅ 支付成功！系统处理中...';
+                    document.getElementById('paymentStatus').style.color = 'green';
+
+                    // 延迟一下，调用真正的出场接口(写入数据库)
+                    setTimeout(async () => {
+                        await finalExit(plate); // 调用原有的出场逻辑
+                        qrModal.style.display = 'none'; // 关二维码窗
+                    }, 1500);
+                }
+            } catch (error) {
+                console.log("轮询出错", error);
+            }
+        }, 1000); // 1000ms = 1秒
+    }
+
+    // 真正的出场入库逻辑（复用之前的代码）
+    async function finalExit(plate) {
+        try {
+            const response = await fetch(`${JAVA_API}/exit?plate=${encodeURIComponent(plate)}`, {
+                method: 'POST'
+            });
+            const msg = await response.text();
+
+            // 解析返回信息显示小票
+            const durationMatch = msg.match(/时长：(\d+)分钟/);
+            const feeMatch = msg.match(/费用：([\d.]+)元/);
+
+            document.getElementById('r_plate').innerText = plate;
+            document.getElementById('r_duration').innerText = (durationMatch ? durationMatch[1] : "0") + " 分钟";
+            document.getElementById('r_fee').innerText = "¥ " + (feeMatch ? feeMatch[1] : "0.00");
+            document.getElementById('receiptModal').style.display = 'flex';
+
+            loadTableData(); // 刷新表格
+        } catch (e) {
+            alert("出场处理失败");
+        }
+    }
+
+    // 关闭二维码弹窗时，记得清除定时器
+    function closeQrModal() {
+        document.getElementById('qrModal').style.display = 'none';
+        if(pollInterval) clearInterval(pollInterval);
+    }
+
+    // 确保你还有 closeModal 函数
+    function closeModal() {
+        document.getElementById('receiptModal').style.display = 'none';
+    }
+
+    function closeModal() {
+        document.getElementById('receiptModal').style.display = 'none';
+    }
+
+            // 4. 加载表格数据
+            async function loadTableData() {
+                try {
+                    const response = await fetch(`${JAVA_API}/list`);
+                    const data = await response.json();
+
+                    const tbody = document.getElementById('tableBody');
+                    tbody.innerHTML = ''; // 清空
+
+                    let activeCount = 0;
+                    let totalIncome = 0;
+
+                    data.forEach(item => {
+                        // 统计
+                        if(item.status === 0) activeCount++;
+                        if(item.status === 1) totalIncome += item.parkingFee;
+
+                        const tr = document.createElement('tr');
+
+                        // 状态样式
+                        const statusHtml = item.status === 0
+                            ? '<span class="status-in">🅿️ 在场</span>'
+                            : '<span class="status-out">🏃 已离场</span>';
+
+                        // 操作按钮
+                        const actionHtml = item.status === 0
+                            ? `<button class="btn-exit" onclick="exitCar('${item.plateNumber}')">结算离场</button>`
+                            : '-';
+
+                        tr.innerHTML = `
+                            <td>${item.id}</td>
+                            <td style="font-weight:bold; color:#2c3e50">${item.plateNumber}</td>
+                            <td>${item.entryTime}</td>
+                            <td>${item.exitTime || '-'}</td>
+                            <td style="color:#e67e22; font-weight:bold">${item.parkingFee ? '¥'+item.parkingFee : '-'}</td>
+                            <td>${statusHtml}</td>
+                            <td>${actionHtml}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+
+                    // 更新顶部卡片
+                    document.getElementById('currentCars').innerText = activeCount;
+                    document.getElementById('remainSpace').innerText = 20 - activeCount;
+                    document.getElementById('todayIncome').innerText = totalIncome.toFixed(2);
+
+                } catch (error) {
+                    console.error("无法获取数据", error);
+                }
+            }
+</script>
+<!-- 结算弹窗 -->
+<div id="receiptModal" class="modal">
+    <div class="receipt-box">
+        <h3>🧾 停车结算单</h3>
+        <div class="receipt-item"><span>车牌号</span><span id="r_plate">--</span></div>
+        <div class="receipt-item"><span>入场时间</span><span id="r_entry">--</span></div>
+        <div class="receipt-item"><span>离场时间</span><span id="r_exit">--</span></div>
+        <div class="receipt-item"><span>停车时长</span><span id="r_duration">-- 分钟</span></div>
+        <div class="big-price" id="r_fee">¥0.00</div>
+        <button class="primary-btn" onclick="closeModal()" style="width:100%">确认收款 & 抬杆</button>
+    </div>
+</div>
+<!-- 新增：二维码支付弹窗 (默认隐藏) -->
+<!-- 二维码支付弹窗 -->
+<div id="qrModal" class="modal">
+    <div class="receipt-box" style="border-top-color: #2ecc71;">
+        <span onclick="closeQrModal()" style="float:right; cursor:pointer; font-size:20px;">&times;</span>
+        <h3>微信扫码支付</h3>
+
+        <!-- 这里是生成二维码的容器 -->
+        <div id="qrcode_box" style="display:flex; justify-content:center; margin: 20px 0;"></div>
+
+        <p id="qr_fee_text" style="font-size: 24px; color: #e74c3c; font-weight: bold;">¥ 0.00</p>
+        <p style="color: #7f8c8d; font-size:12px;">请确保手机连接同一WiFi</p>
+        <p id="paymentStatus" style="font-weight: bold; min-height: 20px; color: #4a90e2;">等待扫码...</p>
+    </div>
+</div>
+</body>
+</html>
